@@ -5,429 +5,701 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FabGuardian – Live Fab Monitor</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;500;600;700&display=swap');
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --bg:          #050810;
+  --bg2:         #080c14;
+  --surface:     #0b1120;
+  --surface2:    #0f1828;
+  --border:      #162033;
+  --border2:     #1e2d44;
+  --accent:      #00c8ff;
+  --accent-dim:  rgba(0,200,255,0.12);
+  --green:       #00e87a;
+  --green-dim:   rgba(0,232,122,0.10);
+  --yellow:      #ffb300;
+  --yellow-dim:  rgba(255,179,0,0.10);
+  --red:         #ff3355;
+  --red-dim:     rgba(255,51,85,0.10);
+  --text:        #b8cce0;
+  --text-bright: #ddeeff;
+  --muted:       #3d5570;
+  --mono:        'JetBrains Mono', monospace;
+  --display:     'Syne', sans-serif;
+  --radius:      10px;
+  --glow-g:  0 0 20px rgba(0,232,122,0.15);
+  --glow-y:  0 0 20px rgba(255,179,0,0.12);
+  --glow-r:  0 0 24px rgba(255,51,85,0.18);
+  --glow-a:  0 0 20px rgba(0,200,255,0.15);
+}
 
-  :root {
-    --bg:        #080c10;
-    --surface:   #0d1520;
-    --border:    #1a2840;
-    --accent:    #00d4ff;
-    --green:     #00ff88;
-    --yellow:    #ffb800;
-    --red:       #ff3b5c;
-    --text:      #c8d8e8;
-    --muted:     #4a6080;
-    --mono:      'Share Tech Mono', monospace;
-    --sans:      'Inter', sans-serif;
-  }
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* subtle grid texture */
+  background-image:
+    linear-gradient(rgba(0,200,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 13px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+/* ═══════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,8,16,0.95);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+}
 
-  /* ── Header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 28px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(90deg, #080c10 0%, #0a1218 100%);
-  }
+.logo { display: flex; align-items: center; gap: 14px; }
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+.logo-mark {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #00c8ff 0%, #0050cc 100%);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px;
+  box-shadow: 0 0 16px rgba(0,150,255,0.35);
+  flex-shrink: 0;
+}
 
-  .logo-icon {
-    width: 34px; height: 34px;
-    background: linear-gradient(135deg, var(--accent), #0060ff);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-  }
+.logo-name {
+  font-family: var(--display);
+  font-size: 18px; font-weight: 800;
+  color: #fff; letter-spacing: -0.3px;
+}
 
-  .logo-text { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; color: #fff; }
-  .logo-sub  { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.logo-sub {
+  font-size: 9px; color: var(--muted);
+  letter-spacing: 2.5px; text-transform: uppercase;
+  margin-top: 1px;
+}
 
-  .header-right { display: flex; align-items: center; gap: 20px; }
+.header-controls { display: flex; align-items: center; gap: 12px; }
 
-  .conn-badge {
-    display: flex; align-items: center; gap: 7px;
-    font-family: var(--mono); font-size: 11px;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: rgba(0,212,255,0.04);
-  }
+/* Connection badge */
+.conn-badge {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; padding: 5px 13px;
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  background: rgba(0,200,255,0.04);
+  color: var(--muted); letter-spacing: 1px;
+}
+.conn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background 0.4s;
+}
+.conn-dot.live  { background: var(--green); box-shadow: 0 0 7px var(--green); animation: blink 2.5s infinite; }
+.conn-dot.error { background: var(--red); }
 
-  .conn-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s;
-  }
-  .conn-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
-  .conn-dot.error { background: var(--red); }
+/* Pause button */
+.pause-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+  padding: 5px 14px;
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pause-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pause-btn.paused { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-dim); }
 
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+.clock {
+  font-size: 12px; color: var(--muted);
+  letter-spacing: 1px; min-width: 70px; text-align: right;
+}
 
-  .clock { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+/* ═══════════════════════════════════════════════
+   HEALTH HEATMAP BAR
+═══════════════════════════════════════════════ */
+.heatmap-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  height: 42px;
+  overflow: hidden;
+}
 
-  /* ── Layout ── */
-  .main {
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    grid-template-rows: auto 1fr;
-    gap: 0;
-    height: calc(100vh - 63px);
-  }
+.heatmap-label {
+  display: flex; align-items: center;
+  font-size: 9px; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+  margin-right: 20px;
+  flex-shrink: 0;
+}
 
-  /* ── Machine grid ── */
-  .machines-panel {
-    padding: 20px;
-    overflow-y: auto;
-    border-right: 1px solid var(--border);
-  }
+.heatmap-cells {
+  display: flex; align-items: center; gap: 12px; flex: 1;
+}
 
-  .panel-title {
-    font-size: 10px; font-weight: 600;
-    letter-spacing: 2px; text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 16px;
-    display: flex; align-items: center; gap: 8px;
-  }
+.heatmap-cell {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; height: 26px;
+  background: var(--surface);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+}
 
-  .panel-title::after {
-    content: ''; flex: 1;
-    height: 1px; background: var(--border);
-  }
+.heatmap-cell:hover { border-color: var(--border2); }
 
-  .machines-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
+.heatmap-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 3px;
+  transition: width 0.8s ease, background 0.5s;
+  opacity: 0.25;
+}
 
-  .machine-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    transition: border-color 0.3s, box-shadow 0.3s;
-    position: relative;
-    overflow: hidden;
-  }
+.heatmap-mid {
+  position: relative; z-index: 1;
+  font-size: 10px; color: #fff; font-weight: 600;
+  padding-left: 10px; letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
 
-  .machine-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0;
-    height: 3px;
-    background: var(--green);
-    transition: background 0.3s;
-  }
+.heatmap-score {
+  position: relative; z-index: 1;
+  font-size: 11px; font-weight: 700;
+  margin-left: auto; padding-right: 10px;
+  transition: color 0.5s;
+}
 
-  .machine-card.warning::before  { background: var(--yellow); }
-  .machine-card.critical::before { background: var(--red); }
-  .machine-card.critical {
-    border-color: rgba(255,59,92,0.35);
-    box-shadow: 0 0 20px rgba(255,59,92,0.08);
-  }
-  .machine-card.warning {
-    border-color: rgba(255,184,0,0.3);
-    box-shadow: 0 0 20px rgba(255,184,0,0.06);
-  }
+/* ═══════════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════════ */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: calc(100vh - 63px - 42px);
+}
 
-  .card-header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    margin-bottom: 14px;
-  }
+/* ═══════════════════════════════════════════════
+   MACHINES PANEL
+═══════════════════════════════════════════════ */
+.machines-panel {
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
 
-  .machine-id {
-    font-family: var(--mono);
-    font-size: 15px; font-weight: 600;
-    color: #fff;
-    letter-spacing: 1px;
-  }
+.machines-panel::-webkit-scrollbar { width: 3px; }
+.machines-panel::-webkit-scrollbar-track { background: transparent; }
+.machines-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-  .machine-type {
-    font-size: 10px; color: var(--muted);
-    margin-top: 2px;
-  }
+.panel-label {
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  .status-badge {
-    font-family: var(--mono);
-    font-size: 10px; font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 12px;
-    letter-spacing: 1px;
-    border: 1px solid;
-  }
+.machines-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
 
-  .status-badge.NORMAL   { color: var(--green);  border-color: rgba(0,255,136,0.3);  background: rgba(0,255,136,0.08);  }
-  .status-badge.WARNING  { color: var(--yellow); border-color: rgba(255,184,0,0.3);  background: rgba(255,184,0,0.08);  }
-  .status-badge.CRITICAL { color: var(--red);    border-color: rgba(255,59,92,0.35); background: rgba(255,59,92,0.08);  animation: flashbadge 0.8s infinite; }
+/* ═══════════════════════════════════════════════
+   MACHINE CARD
+═══════════════════════════════════════════════ */
+.machine-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.15s;
+}
 
-  @keyframes flashbadge { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+.machine-card:hover { transform: translateY(-1px); border-color: var(--border2); }
 
-  /* Sensor metrics */
-  .metrics {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 8px; margin-bottom: 14px;
-  }
+/* Top accent bar */
+.machine-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--green);
+  transition: background 0.4s;
+}
+.machine-card.warning::before  { background: var(--yellow); }
+.machine-card.critical::before { background: var(--red); animation: critpulse 1s infinite; }
 
-  .metric {
-    background: rgba(0,0,0,0.2);
-    border-radius: 6px; padding: 8px 10px;
-  }
+.machine-card.warning  { border-color: rgba(255,179,0,0.25);  box-shadow: var(--glow-y); }
+.machine-card.critical { border-color: rgba(255,51,85,0.3);   box-shadow: var(--glow-r); }
 
-  .metric-label {
-    font-size: 10px; color: var(--muted);
-    letter-spacing: 0.5px; margin-bottom: 3px;
-  }
+@keyframes critpulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
 
-  .metric-value {
-    font-family: var(--mono);
-    font-size: 14px; color: #fff;
-    font-weight: 600;
-  }
+/* Corner decoration */
+.machine-card::after {
+  content: '';
+  position: absolute; bottom: 0; right: 0;
+  width: 40px; height: 40px;
+  background: radial-gradient(circle at bottom right, rgba(0,200,255,0.06), transparent 70%);
+  pointer-events: none;
+}
 
-  .metric-value.warn { color: var(--yellow); }
-  .metric-value.crit { color: var(--red); }
+.card-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 14px;
+}
 
-  /* Wear bar */
-  .wear-section { margin-top: 4px; }
-  .wear-label {
-    display: flex; justify-content: space-between;
-    font-size: 10px; color: var(--muted); margin-bottom: 5px;
-  }
+.machine-id {
+  font-family: var(--display);
+  font-size: 15px; font-weight: 700;
+  color: #fff; letter-spacing: 0.3px;
+}
 
-  .wear-bar {
-    height: 4px; background: rgba(255,255,255,0.06);
-    border-radius: 2px; overflow: hidden;
-  }
+.machine-type {
+  font-size: 9px; color: var(--muted);
+  margin-top: 2px; letter-spacing: 0.3px;
+}
 
-  .wear-fill {
-    height: 100%; border-radius: 2px;
-    background: var(--green);
-    transition: width 0.5s ease, background 0.3s;
-  }
+/* Status badge */
+.status-badge {
+  font-size: 9px; font-weight: 600;
+  padding: 3px 9px; border-radius: 12px;
+  letter-spacing: 1.2px; border: 1px solid;
+  flex-shrink: 0;
+}
+.status-badge.NORMAL   { color: var(--green);  border-color: rgba(0,232,122,0.3);  background: var(--green-dim); }
+.status-badge.WARNING  { color: var(--yellow); border-color: rgba(255,179,0,0.3);  background: var(--yellow-dim); }
+.status-badge.CRITICAL { color: var(--red);    border-color: rgba(255,51,85,0.35); background: var(--red-dim); animation: flashbadge 0.9s infinite; }
+@keyframes flashbadge { 0%,100%{opacity:1} 50%{opacity:0.45} }
 
-  /* Mini chart */
-  .mini-chart { margin-top: 12px; height: 50px; }
+/* Sensor metrics 2x2 grid */
+.metrics {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 7px; margin-bottom: 12px;
+}
 
-  /* Agent thinking indicator */
-  .thinking-overlay {
-    position: absolute; inset: 0;
-    background: rgba(0,212,255,0.04);
-    border: 1px solid rgba(0,212,255,0.25);
-    border-radius: 10px;
-    display: none;
-    align-items: center; justify-content: center;
-    font-family: var(--mono);
-    font-size: 11px; color: var(--accent);
-    gap: 8px;
-  }
+.metric {
+  background: rgba(0,0,0,0.22);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 9px;
+  transition: border-color 0.3s;
+}
 
-  .thinking-overlay.active { display: flex; }
+.metric-label {
+  font-size: 8px; color: var(--muted);
+  letter-spacing: 1px; margin-bottom: 4px; text-transform: uppercase;
+}
 
-  .thinking-dots span {
-    display: inline-block; width: 5px; height: 5px;
-    border-radius: 50%; background: var(--accent);
-    animation: thinkdot 1.2s infinite;
-    margin: 0 2px;
-  }
-  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes thinkdot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+.metric-value {
+  font-size: 13px; color: var(--text-bright);
+  font-weight: 600; transition: color 0.3s;
+}
+.metric-value.warn { color: var(--yellow); }
+.metric-value.crit { color: var(--red); }
 
-  /* Anomaly tag */
-  .anomaly-tag {
-    margin-top: 8px;
-    font-family: var(--mono); font-size: 10px;
-    color: var(--yellow);
-    background: rgba(255,184,0,0.08);
-    border: 1px solid rgba(255,184,0,0.2);
-    border-radius: 4px;
-    padding: 4px 8px;
-    display: none;
-  }
-  .anomaly-tag.visible { display: block; }
+/* Wear bar */
+.wear-row {
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--muted); margin-bottom: 5px;
+}
 
-  /* ── Agent panel ── */
-  .agent-panel {
-    display: flex; flex-direction: column;
-    overflow: hidden;
-  }
+.wear-track {
+  height: 4px; background: rgba(255,255,255,0.05);
+  border-radius: 2px; overflow: hidden; margin-bottom: 10px;
+}
 
-  .agent-header {
-    padding: 20px 20px 14px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
+.wear-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.8s ease, background 0.4s;
+}
 
-  .agent-status {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 11px; color: var(--muted);
-    margin-top: 6px;
-    font-family: var(--mono);
-  }
+/* Mini chart */
+.chart-toggle-hint {
+  font-size: 8px; color: var(--muted); text-align: right;
+  margin-bottom: 3px; letter-spacing: 0.5px; opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.machine-card:hover .chart-toggle-hint { opacity: 1; }
 
-  .agent-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted);
-  }
-  .agent-dot.thinking { background: var(--yellow); animation: pulse 0.8s infinite; }
-  .agent-dot.responded { background: var(--green); }
+.mini-chart-wrap { height: 44px; position: relative; }
 
-  .agent-feed {
-    flex: 1; overflow-y: auto;
-    padding: 16px;
-    display: flex; flex-direction: column;
-    gap: 12px;
-  }
+/* Anomaly tag */
+.anomaly-tag {
+  font-size: 9px; color: var(--yellow);
+  background: var(--yellow-dim);
+  border: 1px solid rgba(255,179,0,0.2);
+  border-radius: 4px; padding: 3px 8px;
+  margin-bottom: 8px; letter-spacing: 0.5px;
+  display: none;
+}
+.anomaly-tag.visible { display: block; animation: slideIn 0.3s ease; }
 
-  /* Scrollbar */
-  .agent-feed::-webkit-scrollbar { width: 4px; }
-  .agent-feed::-webkit-scrollbar-track { background: transparent; }
-  .agent-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* Reset wear button */
+.reset-btn {
+  width: 100%; margin-top: 10px;
+  background: rgba(0,200,255,0.06);
+  border: 1px solid rgba(0,200,255,0.18);
+  color: var(--accent); font-family: var(--mono);
+  font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+  padding: 6px; border-radius: 5px;
+  cursor: pointer; text-transform: uppercase;
+  transition: all 0.2s;
+}
+.reset-btn:hover {
+  background: rgba(0,200,255,0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0,200,255,0.15);
+}
+.reset-btn:active { transform: scale(0.98); }
 
-  .feed-empty {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    height: 100%; gap: 12px;
-    color: var(--muted);
-    font-size: 12px; text-align: center;
-  }
+/* Agent thinking overlay */
+.thinking-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,200,255,0.03);
+  border: 1px solid rgba(0,200,255,0.2);
+  border-radius: var(--radius);
+  display: none; align-items: center; justify-content: center;
+  gap: 9px; font-size: 10px; color: var(--accent);
+  backdrop-filter: blur(1px);
+}
+.thinking-overlay.active { display: flex; }
 
-  .feed-empty .icon { font-size: 36px; opacity: 0.3; }
+.thinking-dots span {
+  display: inline-block; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent);
+  animation: thinkdot 1.3s infinite; margin: 0 2px;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.22s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.44s; }
+@keyframes thinkdot { 0%,80%,100%{transform:scale(0.5);opacity:0.3} 40%{transform:scale(1);opacity:1} }
 
-  /* Agent response card */
-  .response-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    animation: slideIn 0.3s ease;
-  }
+/* ═══════════════════════════════════════════════
+   AGENT PANEL
+═══════════════════════════════════════════════ */
+.agent-panel {
+  display: flex; flex-direction: column; overflow: hidden;
+}
 
-  @keyframes slideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.agent-header {
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 
-  .response-card.CRITICAL { border-color: rgba(255,59,92,0.3); }
-  .response-card.WARNING  { border-color: rgba(255,184,0,0.25); }
+.agent-status-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--muted); margin-top: 6px;
+}
+.agent-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background 0.3s;
+}
+.agent-dot.thinking  { background: var(--yellow); animation: blink 0.8s infinite; }
+.agent-dot.responded { background: var(--green); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  .response-header {
-    padding: 10px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,0.2);
-  }
+.agent-feed {
+  flex: 1; overflow-y: auto;
+  padding: 14px; display: flex;
+  flex-direction: column; gap: 10px;
+}
+.agent-feed::-webkit-scrollbar { width: 3px; }
+.agent-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-  .response-machine {
-    font-family: var(--mono); font-size: 12px;
-    font-weight: 600; color: #fff;
-    display: flex; align-items: center; gap: 8px;
-  }
+.feed-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; gap: 10px;
+  color: var(--muted); font-size: 11px; text-align: center;
+  line-height: 1.6;
+}
+.feed-empty .icon { font-size: 34px; opacity: 0.2; margin-bottom: 4px; }
 
-  .sev-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-  }
-  .sev-dot.CRITICAL { background: var(--red); box-shadow: 0 0 5px var(--red); }
-  .sev-dot.WARNING  { background: var(--yellow); }
+/* Response cards */
+.response-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+  animation: slideIn 0.3s ease;
+  flex-shrink: 0;
+}
+.response-card.CRITICAL { border-color: rgba(255,51,85,0.25); }
+.response-card.WARNING  { border-color: rgba(255,179,0,0.22); }
 
-  .response-time {
-    font-family: var(--mono); font-size: 10px; color: var(--muted);
-  }
+@keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
-  .response-anomaly {
-    padding: 6px 14px;
-    font-size: 10px; color: var(--yellow);
-    font-family: var(--mono);
-    letter-spacing: 0.5px;
-    background: rgba(255,184,0,0.04);
-    border-bottom: 1px solid var(--border);
-  }
+.response-head {
+  padding: 9px 13px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.18);
+}
+.response-machine {
+  font-weight: 700; font-size: 11px; color: #fff;
+  display: flex; align-items: center; gap: 7px;
+}
+.sev-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.sev-dot.CRITICAL { background: var(--red); box-shadow: 0 0 5px var(--red); }
+.sev-dot.WARNING  { background: var(--yellow); }
+.response-time { font-size: 9px; color: var(--muted); }
 
-  .response-body {
-    padding: 12px 14px;
-    font-size: 12px; line-height: 1.65;
-    color: var(--text);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+.response-anomaly {
+  padding: 5px 13px; font-size: 9px; color: var(--yellow);
+  letter-spacing: 0.8px; background: rgba(255,179,0,0.04);
+  border-bottom: 1px solid var(--border); text-transform: uppercase;
+}
 
-  .thinking-card {
-    background: rgba(0,212,255,0.04);
-    border: 1px solid rgba(0,212,255,0.2);
-    border-radius: 8px;
-    padding: 12px 14px;
-    display: flex; align-items: center; gap: 10px;
-    font-family: var(--mono); font-size: 11px; color: var(--accent);
-    animation: slideIn 0.3s ease;
-  }
+.response-body {
+  padding: 11px 13px; font-size: 11px; line-height: 1.7;
+  color: var(--text); white-space: pre-wrap; word-break: break-word;
+}
 
-  /* Stats bar */
-  .stats-bar {
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    display: flex; gap: 20px;
-    flex-shrink: 0;
-    background: rgba(0,0,0,0.2);
-  }
+.thinking-card {
+  background: rgba(0,200,255,0.04);
+  border: 1px solid rgba(0,200,255,0.18);
+  border-radius: 8px; padding: 11px 13px;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 10px; color: var(--accent);
+  animation: slideIn 0.3s ease; flex-shrink: 0;
+}
 
-  .stat { text-align: center; }
-  .stat-val { font-family: var(--mono); font-size: 16px; font-weight: 600; color: #fff; }
-  .stat-lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; margin-top: 2px; }
+/* Stats bar */
+.stats-bar {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; flex-shrink: 0;
+  background: rgba(0,0,0,0.2);
+}
+.stat { text-align: center; }
+.stat-val {
+  font-family: var(--display); font-size: 18px; font-weight: 700; color: #fff;
+  transition: color 0.3s;
+}
+.stat-lbl { font-size: 8px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 1px; }
 
-  /* Scrollbars */
-  .machines-panel::-webkit-scrollbar { width: 4px; }
-  .machines-panel::-webkit-scrollbar-track { background: transparent; }
-  .machines-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* ═══════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════ */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,8,16,0.88);
+  backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+  padding: 24px;
+}
+.modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  width: 100%; max-width: 820px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,200,255,0.06);
+}
+@keyframes modalIn { from{opacity:0;transform:scale(0.94) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  font-family: var(--display); font-size: 20px; font-weight: 700;
+  color: #fff; letter-spacing: -0.2px;
+}
+.modal-subtitle { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 1px; }
+
+.modal-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--muted); font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+
+.modal-body { padding: 20px 24px 24px; }
+
+.modal-stats {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 12px; margin-bottom: 20px;
+}
+.modal-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.modal-stat-lbl { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.modal-stat-val { font-family: var(--display); font-size: 18px; font-weight: 700; color: #fff; }
+.modal-stat-unit { font-family: var(--mono); font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+
+.modal-charts {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px;
+}
+.chart-card-title {
+  font-size: 9px; color: var(--muted); letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.chart-wrap { height: 110px; }
+
+.modal-actions {
+  display: flex; gap: 10px; margin-top: 20px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+}
+
+.btn {
+  flex: 1; padding: 10px;
+  border-radius: 7px; cursor: pointer;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  transition: all 0.2s; border: 1px solid;
+}
+.btn-accent {
+  background: var(--accent-dim); border-color: rgba(0,200,255,0.35);
+  color: var(--accent);
+}
+.btn-accent:hover { background: rgba(0,200,255,0.2); box-shadow: var(--glow-a); }
+.btn-muted {
+  background: transparent; border-color: var(--border2); color: var(--muted);
+}
+.btn-muted:hover { border-color: var(--border2); color: var(--text); }
+
+/* ═══════════════════════════════════════════════
+   TOASTS
+═══════════════════════════════════════════════ */
+#toast-container {
+  position: fixed; bottom: 22px; right: 22px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 600; pointer-events: none;
+}
+.toast {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  padding: 10px 16px; font-size: 11px; color: var(--text);
+  animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  max-width: 280px; line-height: 1.5;
+}
+.toast.ok   { border-left-color: var(--green); }
+.toast.warn { border-left-color: var(--yellow); }
+.toast.crit { border-left-color: var(--red); }
+@keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+@keyframes toastOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(20px)} }
+
+/* ═══════════════════════════════════════════════
+   PAUSED BANNER
+═══════════════════════════════════════════════ */
+.paused-banner {
+  display: none; position: fixed; top: 63px; left: 50%;
+  transform: translateX(-50%); z-index: 200;
+  background: var(--yellow-dim); border: 1px solid rgba(255,179,0,0.35);
+  border-radius: 0 0 8px 8px; padding: 5px 18px;
+  font-size: 10px; color: var(--yellow); letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.paused-banner.visible { display: block; animation: slideIn 0.2s ease; }
+
+/* ═══════════════════════════════════════════════
+   SCROLLBAR GLOBAL
+═══════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 </style>
 </head>
 <body>
 
+<!-- ═══ HEADER ═══ -->
 <header>
   <div class="logo">
-    <div class="logo-icon">🔬</div>
+    <div class="logo-mark">🔬</div>
     <div>
-      <div class="logo-text">FabGuardian</div>
+      <div class="logo-name">FabGuardian</div>
       <div class="logo-sub">Semiconductor Fab Monitor</div>
     </div>
   </div>
-  <div class="header-right">
+
+  <div class="header-controls">
     <div class="conn-badge">
       <div class="conn-dot" id="connDot"></div>
       <span id="connLabel">Connecting…</span>
     </div>
+    <button class="pause-btn" id="pauseBtn">⏸ Pause</button>
     <div class="clock" id="clock">--:--:--</div>
   </div>
 </header>
 
+<!-- ═══ FLEET HEALTH HEATMAP ═══ -->
+<div class="heatmap-bar">
+  <div class="heatmap-label">Fleet Health</div>
+  <div class="heatmap-cells" id="heatmapCells">
+    <!-- Injected by JS -->
+  </div>
+</div>
+
+<!-- ═══ PAUSED BANNER ═══ -->
+<div class="paused-banner" id="pausedBanner">⏸ Feed Paused — Sensor updates suspended</div>
+
+<!-- ═══ MAIN LAYOUT ═══ -->
 <div class="main">
 
-  <!-- ── Left: Machines ── -->
+  <!-- LEFT: Machine cards -->
   <div class="machines-panel">
-    <div class="panel-title">Live Equipment Status</div>
-    <div class="machines-grid" id="machinesGrid">
-      <!-- Cards injected by JS -->
-    </div>
+    <div class="panel-label">Live Equipment Status</div>
+    <div class="machines-grid" id="machinesGrid"></div>
   </div>
 
-  <!-- ── Right: Agent feed ── -->
+  <!-- RIGHT: Agent feed -->
   <div class="agent-panel">
     <div class="agent-header">
-      <div class="panel-title" style="margin-bottom:6px">AI Agent Feed</div>
-      <div class="agent-status">
+      <div class="panel-label" style="margin-bottom:6px">AI Agent Feed</div>
+      <div class="agent-status-row">
         <div class="agent-dot" id="agentDot"></div>
         <span id="agentStatus">Monitoring for anomalies…</span>
       </div>
@@ -436,66 +708,166 @@
     <div class="agent-feed" id="agentFeed">
       <div class="feed-empty" id="feedEmpty">
         <div class="icon">🤖</div>
-        <div>FabGuardian_Orchestrator is watching<br>all machines for anomalies.</div>
-        <div style="font-size:11px;margin-top:4px">Agent will auto-trigger when<br>a WARNING or CRITICAL is detected.</div>
+        <div>FabGuardian_Orchestrator<br>watching all machines.</div>
+        <div style="font-size:10px;margin-top:4px;opacity:0.7">
+          Agent auto-triggers on<br>WARNING or CRITICAL events.
+        </div>
       </div>
     </div>
 
     <div class="stats-bar">
       <div class="stat">
         <div class="stat-val" id="statAnomalies">0</div>
-        <div class="stat-lbl">ANOMALIES</div>
+        <div class="stat-lbl">Anomalies</div>
       </div>
       <div class="stat">
         <div class="stat-val" id="statAgentCalls">0</div>
-        <div class="stat-lbl">AGENT CALLS</div>
+        <div class="stat-lbl">Agent Calls</div>
       </div>
       <div class="stat">
         <div class="stat-val" id="statWorkOrders">0</div>
-        <div class="stat-lbl">WORK ORDERS</div>
+        <div class="stat-lbl">Work Orders</div>
       </div>
     </div>
   </div>
 
 </div>
 
-<script>
-// ── State ──
-const machines  = ["CMP-01", "LITHO-01", "ETCH-02", "CVD-03"];
-const typeLabel = { "CMP-01":"Chemical Mechanical Polish", "LITHO-01":"Lithography", "ETCH-02":"Plasma Etch", "CVD-03":"CVD Furnace" };
-const history   = Object.fromEntries(machines.map(m => [m, []]));
-const charts    = {};
-let   anomalyCount = 0, agentCallCount = 0, workOrderCount = 0;
+<!-- ═══ MACHINE DETAIL MODAL ═══ -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">Machine Detail</div>
+        <div class="modal-subtitle" id="modalSubtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-stats" id="modalStats"></div>
+      <div class="modal-charts" id="modalCharts"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+</div>
 
-// ── Clock ──
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const MACHINES = ["CMP-01", "LITHO-01", "ETCH-02", "CVD-03"];
+const TYPE_LABEL = {
+  "CMP-01":   "Chemical Mechanical Polish",
+  "LITHO-01": "Lithography",
+  "ETCH-02":  "Plasma Etch",
+  "CVD-03":   "CVD Furnace"
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+const history      = Object.fromEntries(MACHINES.map(m => [m, []]));
+const miniCharts   = {};
+const chartMetric  = Object.fromEntries(MACHINES.map(m => [m, 0])); // 0=rpm 1=torque 2=proc temp
+const prevStatus   = Object.fromEntries(MACHINES.map(m => [m, "NORMAL"]));
+const latestReading = Object.fromEntries(MACHINES.map(m => [m, null]));
+let anomalyCount = 0, agentCallCount = 0, workOrderCount = 0;
+let paused = false;
+
+const CHART_METRICS = [
+  { key: "rotational_speed_rpm",  label: "RPM",       unit: "",   color: "#00c8ff" },
+  { key: "torque_nm",             label: "TORQUE",     unit: " Nm", color: "#ffb300" },
+  { key: "process_temperature_k", label: "PROC TEMP",  unit: " K", color: "#ff6b6b" },
+];
+
+// ── Clock ────────────────────────────────────────────────────────────────────
 function updateClock() {
   document.getElementById("clock").textContent = new Date().toLocaleTimeString();
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── Build machine cards ──
+// ── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, type = "") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(() => {
+    el.style.animation = "toastOut 0.3s ease forwards";
+    setTimeout(() => el.remove(), 300);
+  }, 4000);
+}
+
+// ── Health Score ─────────────────────────────────────────────────────────────
+function healthScore(r) {
+  if (!r) return 100;
+  let s = 100;
+  if (r.status === "WARNING")  s -= 28;
+  if (r.status === "CRITICAL") s -= 55;
+  s -= (r.tool_wear_min / 250) * 18;
+  if (r.anomaly_type) s -= 10;
+  return Math.max(0, Math.round(s));
+}
+
+function scoreColor(score) {
+  if (score >= 75) return "var(--green)";
+  if (score >= 45) return "var(--yellow)";
+  return "var(--red)";
+}
+
+// ── Build Heatmap ─────────────────────────────────────────────────────────────
+const heatmapCells = {};
+MACHINES.forEach(mid => {
+  const cell = document.createElement("div");
+  cell.className = "heatmap-cell";
+  cell.id = `hm-${mid}`;
+  cell.innerHTML = `
+    <div class="heatmap-fill" id="hmfill-${mid}" style="width:100%;background:var(--green)"></div>
+    <div class="heatmap-mid">${mid}</div>
+    <div class="heatmap-score" id="hmscore-${mid}" style="color:var(--green)">100</div>
+  `;
+  cell.addEventListener("click", () => openModal(mid));
+  document.getElementById("heatmapCells").appendChild(cell);
+  heatmapCells[mid] = cell;
+});
+
+function updateHeatmap(mid) {
+  const r = latestReading[mid];
+  const score = healthScore(r);
+  const col = scoreColor(score);
+  document.getElementById(`hmfill-${mid}`).style.background = col;
+  document.getElementById(`hmfill-${mid}`).style.width = score + "%";
+  const scoreEl = document.getElementById(`hmscore-${mid}`);
+  scoreEl.textContent = score;
+  scoreEl.style.color = col;
+}
+
+// ── Build Machine Cards ───────────────────────────────────────────────────────
 const grid = document.getElementById("machinesGrid");
 
-machines.forEach(mid => {
+MACHINES.forEach(mid => {
   const card = document.createElement("div");
   card.className = "machine-card";
   card.id = `card-${mid}`;
   card.innerHTML = `
-    <div class="card-header">
+    <div class="card-top">
       <div>
         <div class="machine-id">${mid}</div>
-        <div class="machine-type">${typeLabel[mid]}</div>
+        <div class="machine-type">${TYPE_LABEL[mid]}</div>
       </div>
       <div class="status-badge NORMAL" id="badge-${mid}">NORMAL</div>
     </div>
+
     <div class="metrics">
       <div class="metric">
-        <div class="metric-label">AIR TEMP</div>
+        <div class="metric-label">Air Temp</div>
         <div class="metric-value" id="m-airtemp-${mid}">—</div>
       </div>
       <div class="metric">
-        <div class="metric-label">PROC TEMP</div>
+        <div class="metric-label">Proc Temp</div>
         <div class="metric-value" id="m-proctemp-${mid}">—</div>
       </div>
       <div class="metric">
@@ -503,46 +875,58 @@ machines.forEach(mid => {
         <div class="metric-value" id="m-rpm-${mid}">—</div>
       </div>
       <div class="metric">
-        <div class="metric-label">TORQUE</div>
+        <div class="metric-label">Torque</div>
         <div class="metric-value" id="m-torque-${mid}">—</div>
       </div>
     </div>
-    <div class="wear-section">
-      <div class="wear-label">
-        <span>TOOL WEAR</span>
-        <span id="m-wear-${mid}">—</span>
-      </div>
-      <div class="wear-bar">
-        <div class="wear-fill" id="wearfill-${mid}" style="width:0%"></div>
-      </div>
+
+    <div class="wear-row">
+      <span>Tool Wear</span>
+      <span id="m-wear-${mid}">— / 250 min</span>
     </div>
+    <div class="wear-track">
+      <div class="wear-fill" id="wearfill-${mid}" style="width:0%;background:var(--green)"></div>
+    </div>
+
     <div class="anomaly-tag" id="anomtag-${mid}"></div>
-    <div class="mini-chart">
-      <canvas id="chart-${mid}" height="50"></canvas>
+
+    <div class="chart-toggle-hint" id="charttip-${mid}">Click chart to toggle metric · Click card to inspect</div>
+    <div class="mini-chart-wrap">
+      <canvas id="chart-${mid}" height="44"></canvas>
     </div>
+
+    <button class="reset-btn" id="resetbtn-${mid}" onclick="event.stopPropagation(); resetWear('${mid}')">
+      🔧 Reset Tool Wear
+    </button>
+
     <div class="thinking-overlay" id="thinking-${mid}">
       <span>Agent analysing</span>
-      <div class="thinking-dots">
-        <span></span><span></span><span></span>
-      </div>
+      <div class="thinking-dots"><span></span><span></span><span></span></div>
     </div>
   `;
+
+  // Open modal on card click (not on button or chart)
+  card.addEventListener("click", (e) => {
+    if (e.target.closest(".reset-btn") || e.target.closest("canvas")) return;
+    openModal(mid);
+  });
+
   grid.appendChild(card);
 
   // Init mini chart
   const ctx = document.getElementById(`chart-${mid}`).getContext("2d");
-  charts[mid] = new Chart(ctx, {
+  miniCharts[mid] = new Chart(ctx, {
     type: "line",
     data: {
       labels: [],
       datasets: [{
         data: [],
-        borderColor: "#00d4ff",
+        borderColor: CHART_METRICS[0].color,
         borderWidth: 1.5,
         pointRadius: 0,
-        tension: 0.4,
+        tension: 0.35,
         fill: true,
-        backgroundColor: "rgba(0,212,255,0.05)",
+        backgroundColor: "rgba(0,200,255,0.05)",
       }]
     },
     options: {
@@ -550,35 +934,61 @@ machines.forEach(mid => {
       maintainAspectRatio: false,
       animation: false,
       plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: {
-        x: { display: false },
-        y: { display: false, grace: "10%" }
-      }
+      scales: { x: { display: false }, y: { display: false, grace: "10%" } }
     }
+  });
+
+  // Click chart canvas to cycle metric
+  document.getElementById(`chart-${mid}`).addEventListener("click", (e) => {
+    e.stopPropagation();
+    chartMetric[mid] = (chartMetric[mid] + 1) % CHART_METRICS.length;
+    const m = CHART_METRICS[chartMetric[mid]];
+    document.getElementById(`charttip-${mid}`).textContent = `Showing: ${m.label} · Click to change`;
+    refreshMiniChart(mid);
   });
 });
 
+// ── Refresh mini chart ────────────────────────────────────────────────────────
+function refreshMiniChart(mid) {
+  const metaIdx = chartMetric[mid];
+  const meta = CHART_METRICS[metaIdx];
+  const data = history[mid].map(r => r[meta.key]);
+  const status = latestReading[mid]?.status || "NORMAL";
 
-// ── Update a machine card ──
+  const borderColor = status === "CRITICAL" ? "#ff3355"
+                    : status === "WARNING"  ? "#ffb300"
+                    : meta.color;
+
+  miniCharts[mid].data.labels   = data.map((_, i) => i);
+  miniCharts[mid].data.datasets[0].data        = data;
+  miniCharts[mid].data.datasets[0].borderColor = borderColor;
+  miniCharts[mid].data.datasets[0].backgroundColor = borderColor.replace(")", ",0.05)").replace("rgb", "rgba");
+  miniCharts[mid].update("none");
+}
+
+// ── Update card ───────────────────────────────────────────────────────────────
 function updateCard(r) {
   const mid    = r.machine_id;
   const status = r.status;
 
-  const card  = document.getElementById(`card-${mid}`);
-  const badge = document.getElementById(`badge-${mid}`);
+  latestReading[mid] = r;
 
   // Status class
+  const card  = document.getElementById(`card-${mid}`);
+  const badge = document.getElementById(`badge-${mid}`);
   card.className  = `machine-card ${status !== "NORMAL" ? status.toLowerCase() : ""}`;
   badge.className = `status-badge ${status}`;
   badge.textContent = status;
 
-  // Metrics
-  const setVal = (id, val, warn, crit) => {
-    const el = document.getElementById(id);
-    el.textContent = val;
-    el.className = `metric-value ${val >= crit ? "crit" : val >= warn ? "warn" : ""}`;
-  };
+  // Flash notification on new critical
+  if (status === "CRITICAL" && prevStatus[mid] !== "CRITICAL") {
+    showToast(`🔴 CRITICAL: ${mid} — ${(r.anomaly_type||"").replace(/_/g," ")}`, "crit");
+  } else if (status === "WARNING" && prevStatus[mid] === "NORMAL") {
+    showToast(`⚠ WARNING: ${mid} — ${(r.anomaly_type||"").replace(/_/g," ")}`, "warn");
+  }
+  prevStatus[mid] = status;
 
+  // Metrics
   document.getElementById(`m-airtemp-${mid}`).textContent  = r.air_temperature_k.toFixed(1) + " K";
   document.getElementById(`m-proctemp-${mid}`).textContent = r.process_temperature_k.toFixed(1) + " K";
 
@@ -594,13 +1004,13 @@ function updateCard(r) {
   const wearPct = Math.min(100, (r.tool_wear_min / 250) * 100);
   document.getElementById(`m-wear-${mid}`).textContent = r.tool_wear_min.toFixed(0) + " / 250 min";
   const fill = document.getElementById(`wearfill-${mid}`);
-  fill.style.width = wearPct + "%";
+  fill.style.width      = wearPct + "%";
   fill.style.background = wearPct > 85 ? "var(--red)" : wearPct > 65 ? "var(--yellow)" : "var(--green)";
 
   // Anomaly tag
   const tag = document.getElementById(`anomtag-${mid}`);
   if (r.anomaly_type) {
-    tag.textContent = "⚠ " + r.anomaly_type.replace(/_/g, " ").toUpperCase() + " DETECTED";
+    tag.textContent = "⚠ " + r.anomaly_type.replace(/_/g," ").toUpperCase() + " DETECTED";
     tag.className = "anomaly-tag visible";
     anomalyCount++;
     document.getElementById("statAnomalies").textContent = anomalyCount;
@@ -608,18 +1018,158 @@ function updateCard(r) {
     tag.className = "anomaly-tag";
   }
 
-  // Mini chart — track RPM
-  history[mid].push(r.rotational_speed_rpm);
-  if (history[mid].length > 30) history[mid].shift();
-  charts[mid].data.labels = history[mid].map((_, i) => i);
-  charts[mid].data.datasets[0].data = [...history[mid]];
-  charts[mid].data.datasets[0].borderColor = status === "CRITICAL" ? "#ff3b5c" : status === "WARNING" ? "#ffb800" : "#00d4ff";
-  charts[mid].data.datasets[0].backgroundColor = status === "CRITICAL" ? "rgba(255,59,92,0.05)" : "rgba(0,212,255,0.05)";
-  charts[mid].update("none");
+  // History + mini chart
+  history[mid].push(r);
+  if (history[mid].length > 35) history[mid].shift();
+  refreshMiniChart(mid);
+
+  // Heatmap
+  updateHeatmap(mid);
 }
 
+// ── Reset wear ────────────────────────────────────────────────────────────────
+async function resetWear(mid) {
+  try {
+    await fetch(`/api/reset-wear/${mid}`, { method: "POST" });
+    showToast(`✅ Tool wear reset for ${mid}`, "ok");
+  } catch {
+    showToast(`Failed to reset wear for ${mid}`, "crit");
+  }
+}
 
-// ── Agent feed ──
+// ── Pause / Resume ────────────────────────────────────────────────────────────
+document.getElementById("pauseBtn").addEventListener("click", () => {
+  paused = !paused;
+  const btn = document.getElementById("pauseBtn");
+  const banner = document.getElementById("pausedBanner");
+  btn.textContent = paused ? "▶ Resume" : "⏸ Pause";
+  btn.classList.toggle("paused", paused);
+  banner.classList.toggle("visible", paused);
+  showToast(paused ? "⏸ Feed paused" : "▶ Feed resumed", paused ? "warn" : "ok");
+});
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+let modalCharts = {};
+
+async function openModal(mid) {
+  // Fetch history
+  let hist = [];
+  try {
+    const res = await fetch(`/api/history/${mid}`);
+    hist = await res.json();
+  } catch {
+    hist = history[mid];
+  }
+
+  const r = latestReading[mid];
+
+  // Populate header
+  document.getElementById("modalTitle").textContent = mid;
+  document.getElementById("modalSubtitle").textContent = TYPE_LABEL[mid] + " — Live Sensor Detail";
+
+  // Populate stats
+  const statsEl = document.getElementById("modalStats");
+  statsEl.innerHTML = "";
+  const statData = r ? [
+    { lbl: "Air Temp",    val: r.air_temperature_k.toFixed(1),     unit: "K"  },
+    { lbl: "Proc Temp",   val: r.process_temperature_k.toFixed(1),  unit: "K"  },
+    { lbl: "RPM",         val: Math.round(r.rotational_speed_rpm),  unit: ""   },
+    { lbl: "Torque",      val: r.torque_nm.toFixed(1),              unit: "Nm" },
+  ] : [];
+  statData.forEach(s => {
+    const d = document.createElement("div");
+    d.className = "modal-stat";
+    d.innerHTML = `<div class="modal-stat-lbl">${s.lbl}</div>
+      <div class="modal-stat-val">${s.val}<span class="modal-stat-unit">${s.unit}</span></div>`;
+    statsEl.appendChild(d);
+  });
+
+  // Build 4 charts
+  const chartsEl = document.getElementById("modalCharts");
+  chartsEl.innerHTML = "";
+
+  // Destroy previous charts
+  Object.values(modalCharts).forEach(c => c.destroy());
+  modalCharts = {};
+
+  const chartDefs = [
+    { key: "rotational_speed_rpm",  label: "RPM",          color: "#00c8ff" },
+    { key: "torque_nm",             label: "Torque (Nm)",   color: "#ffb300" },
+    { key: "air_temperature_k",     label: "Air Temp (K)",  color: "#a78bfa" },
+    { key: "process_temperature_k", label: "Proc Temp (K)", color: "#ff6b6b" },
+  ];
+
+  chartDefs.forEach(cd => {
+    const wrap = document.createElement("div");
+    wrap.className = "chart-card";
+    const canvasId = `modal-chart-${mid}-${cd.key}`;
+    wrap.innerHTML = `<div class="chart-card-title">${cd.label}</div>
+      <div class="chart-wrap"><canvas id="${canvasId}"></canvas></div>`;
+    chartsEl.appendChild(wrap);
+
+    const vals = hist.map(h => h[cd.key]);
+    const ctx2 = document.getElementById(canvasId).getContext("2d");
+    modalCharts[canvasId] = new Chart(ctx2, {
+      type: "line",
+      data: {
+        labels: vals.map((_, i) => i),
+        datasets: [{
+          data: vals,
+          borderColor: cd.color,
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+          backgroundColor: cd.color.replace("rgb", "rgba").replace(")", ",0.06)"),
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: { legend: { display: false }, tooltip: {
+          enabled: true, mode: "index", intersect: false,
+          backgroundColor: "#0b1120",
+          borderColor: "#1e2d44", borderWidth: 1,
+          titleColor: "#b8cce0", bodyColor: "#b8cce0",
+          titleFont: { family: "'JetBrains Mono'" },
+          bodyFont:  { family: "'JetBrains Mono'" },
+        }},
+        scales: {
+          x: { display: false },
+          y: { display: true, grace: "5%",
+            grid: { color: "rgba(255,255,255,0.04)" },
+            ticks: { color: "#3d5570", font: { size: 9, family: "'JetBrains Mono'" }, maxTicksLimit: 4 }
+          }
+        }
+      }
+    });
+  });
+
+  // Actions
+  const actEl = document.getElementById("modalActions");
+  actEl.innerHTML = `
+    <button class="btn btn-accent" onclick="resetWear('${mid}'); closeModal()">🔧 Reset Tool Wear</button>
+    <button class="btn btn-muted" onclick="closeModal()">Close</button>
+  `;
+
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modalBackdrop").classList.remove("open");
+  Object.values(modalCharts).forEach(c => c.destroy());
+  modalCharts = {};
+}
+
+// Close modal on backdrop click
+document.getElementById("modalBackdrop").addEventListener("click", e => {
+  if (e.target === document.getElementById("modalBackdrop")) closeModal();
+});
+
+// Close modal on Escape
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+// ── Agent feed ────────────────────────────────────────────────────────────────
 function addThinkingCard(payload) {
   document.getElementById("feedEmpty").style.display = "none";
   document.getElementById(`thinking-${payload.machine_id}`).classList.add("active");
@@ -634,7 +1184,7 @@ function addThinkingCard(payload) {
   card.id = `thinking-card-${payload.machine_id}`;
   card.innerHTML = `
     <div class="thinking-dots"><span></span><span></span><span></span></div>
-    <span>FabGuardian_Orchestrator analysing ${payload.machine_id} — ${payload.anomaly_type.replace(/_/g," ").toUpperCase()}…</span>
+    <span>Orchestrator analysing ${payload.machine_id} — ${(payload.anomaly_type||"").replace(/_/g," ").toUpperCase()}…</span>
   `;
   feed.appendChild(card);
   feed.scrollTop = feed.scrollHeight;
@@ -643,7 +1193,6 @@ function addThinkingCard(payload) {
 }
 
 function addResponseCard(payload) {
-  // Remove thinking card
   const tc = document.getElementById(`thinking-card-${payload.machine_id}`);
   if (tc) tc.remove();
   document.getElementById(`thinking-${payload.machine_id}`).classList.remove("active");
@@ -652,11 +1201,11 @@ function addResponseCard(payload) {
   dot.className = "agent-dot responded";
   document.getElementById("agentStatus").textContent = `Last response: ${payload.machine_id}`;
 
-  // Count work orders in response
   const woMatches = (payload.agent_response || "").match(/WO-[A-F0-9]{8}/g);
   if (woMatches) {
     workOrderCount += woMatches.length;
     document.getElementById("statWorkOrders").textContent = workOrderCount;
+    showToast(`🔧 Work Order created for ${payload.machine_id}`, "ok");
   }
 
   const ts = new Date(payload.timestamp * 1000).toLocaleTimeString();
@@ -664,7 +1213,7 @@ function addResponseCard(payload) {
   const card = document.createElement("div");
   card.className = `response-card ${payload.status}`;
   card.innerHTML = `
-    <div class="response-header">
+    <div class="response-head">
       <div class="response-machine">
         <div class="sev-dot ${payload.status}"></div>
         ${payload.machine_id}
@@ -678,21 +1227,20 @@ function addResponseCard(payload) {
   feed.scrollTop = feed.scrollHeight;
 }
 
-
-// ── SSE connection ──
+// ── SSE Connection ────────────────────────────────────────────────────────────
 function connectSSE() {
   const dot   = document.getElementById("connDot");
   const label = document.getElementById("connLabel");
-
-  const es = new EventSource("/stream");
+  const es    = new EventSource("/stream");
 
   es.onopen = () => {
-    dot.className   = "conn-dot live";
+    dot.className     = "conn-dot live";
     label.textContent = "LIVE";
+    showToast("✅ Connected to FabGuardian stream", "ok");
   };
 
   es.onerror = () => {
-    dot.className   = "conn-dot error";
+    dot.className     = "conn-dot error";
     label.textContent = "Reconnecting…";
     setTimeout(connectSSE, 3000);
     es.close();
@@ -704,16 +1252,13 @@ function connectSSE() {
 
     switch (msg.type) {
       case "sensor":
-        updateCard(msg.payload);
+        if (!paused) updateCard(msg.payload);
         break;
       case "agent_thinking":
         addThinkingCard(msg.payload);
         break;
       case "agent_response":
         addResponseCard(msg.payload);
-        break;
-      case "heartbeat":
-        // keep alive
         break;
     }
   };
