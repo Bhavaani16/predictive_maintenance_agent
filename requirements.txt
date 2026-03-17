@@ -1,0 +1,14 @@
+# FabGuardian – Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Core ML & data
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# IBM watsonx Orchestrate ADK  (PyPI: https://pypi.org/project/ibm-watsonx-orchestrate/)
+ibm-watsonx-orchestrate>=1.15.0
+
+# Utilities
+python-dotenv>=1.0.0        # Load WATSONX_APIKEY from .env
+pydantic>=2.6.0             # Optional: stronger data validation in tools
