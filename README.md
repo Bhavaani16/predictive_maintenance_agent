@@ -1,8 +1,8 @@
-# predictive_maintenance_agent
 # FabGuardian – Complete Implementation Guide
 
 A semiconductor manufacturing AI agent built on IBM watsonx Orchestrate ADK.
-Predicts equipment failures, monitors supply chain risk, and creates P1/P2 work orders automatically.
+Predicts equipment failures, monitors supply chain risk, creates P1/P2 work orders automatically,
+and streams live sensor data to a real-time browser dashboard.
 
 ---
 
@@ -20,18 +20,22 @@ FabGuardian/
 │   ├── random_forest.joblib
 │   ├── label_encoder.joblib
 │   └── model_metadata.json
-└── tools/
-    ├── failure_predictor.py         # Equipment health scoring (pure numpy)
-    ├── supply_risk_analyzer.py      # Supply chain buffer risk calculator
-    ├── work_order_manager.py        # P1/P2 work order lifecycle manager
-    └── train_model.py               # Offline model training script
+├── tools/
+│   ├── failure_predictor.py         # Equipment health scoring (pure numpy, no sklearn)
+│   ├── supply_risk_analyzer.py      # Supply chain buffer risk calculator
+│   ├── work_order_manager.py        # P1/P2 work order lifecycle manager
+│   └── train_model.py               # Offline model training script
+└── simulation/
+    ├── sensor_simulator.py          # Generates live sensor readings with anomaly injection
+    ├── fab_server.py                # Flask backend + SSE stream + tool invocation
+    ├── requirements_sim.txt         # Simulation-specific dependencies
+    └── static/
+        └── index.html               # Live browser dashboard
 ```
 
 ---
 
 ## Prerequisites
-
-Before starting, make sure you have the following:
 
 | Requirement | Version | Notes |
 |---|---|---|
@@ -41,11 +45,13 @@ Before starting, make sure you have the following:
 | watsonx Orchestrate API key | — | From Settings → API Details inside the Orchestrate UI |
 | watsonx Orchestrate instance URL | — | From Settings → API Details inside the Orchestrate UI |
 
-> **Hackathon users:** Your API key, instance URL, and instance ID are in your credentials pack or on the watsonx Orchestrate UI under **Settings → API Details**. Use those — do not use IBM Cloud resource credentials, they are different.
+> **Hackathon users:** Your API key and instance URL are in your credentials pack or under **Settings → API Details** in the watsonx Orchestrate UI. Do not use IBM Cloud resource credentials — they are different.
 
 ---
 
-## Step 1 — Unzip the project
+## Part 1 — Agent Setup
+
+### Step 1 — Unzip the project
 
 ```bash
 unzip FabGuardian.zip
@@ -54,156 +60,111 @@ cd FabGuardian
 
 ---
 
-## Step 2 — Create a Python 3.11 virtual environment
+### Step 2 — Create a Python 3.11 virtual environment
 
 ```bash
-# Create the virtual environment (must be Python 3.11)
 python3.11 -m venv .venv
-
-# Activate it
 source .venv/bin/activate        # Mac / Linux
 # .venv\Scripts\activate         # Windows
 
-# Confirm the Python version
 python --version
-# Should print: Python 3.11.x
+# Must print: Python 3.11.x
 ```
 
-> **Important:** Always activate the virtual environment before running any `orchestrate` or `python` commands. If you open a new terminal window you must re-run `source .venv/bin/activate`.
+> **Important:** Always activate the virtual environment before running any `orchestrate` or `python` commands. Re-run `source .venv/bin/activate` every time you open a new terminal.
 
 ---
 
-## Step 3 — Install dependencies
+### Step 3 — Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-This installs:
-- `ibm-watsonx-orchestrate` — the ADK and CLI
-- `scikit-learn`, `numpy`, `pandas` — data and ML libraries
-- `joblib` — model persistence
-- `python-dotenv` — credential management
-
-> **Note:** If you see an error saying `ibm-watsonx-orchestrate-adk` not found, that package name is wrong. The correct name is `ibm-watsonx-orchestrate` as written in `requirements.txt`.
+> **Note:** The correct package name is `ibm-watsonx-orchestrate` — no `-adk` suffix. If you see a "not found" error, check `requirements.txt` uses this exact name.
 
 ---
 
-## Step 4 — Set your credentials
-
-Set your API key and instance URL as environment variables. Replace the placeholder values with your real credentials from the watsonx Orchestrate UI.
+### Step 4 — Set your credentials
 
 ```bash
 export WATSONX_APIKEY="your-api-key-here"
-export WATSONX_URL="https://api.us-east-1.watson-orchestrate.cloud.ibm.com/instances/your-instance-id-here"
+export WATSONX_URL="https://api.us-east-1.watson-orchestrate.cloud.ibm.com/instances/your-instance-id"
 ```
 
-Verify both are set before continuing:
+Verify both are set:
 
 ```bash
-echo $WATSONX_APIKEY
-echo $WATSONX_URL
-# Both must print values — if either is blank, the next steps will fail
+echo $WATSONX_APIKEY    # must print your key — not blank
+echo $WATSONX_URL       # must print your URL — not blank
 ```
 
-> **Finding your Instance URL and ID:**
-> Log into watsonx Orchestrate → click your profile icon (top right) → **Settings → API Details**.
-> Your full instance URL is listed there. It looks like:
-> `https://api.us-east-1.watson-orchestrate.cloud.ibm.com/instances/a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-> Copy the entire URL — the long string at the end is your instance ID.
+To make permanent (so you never have to re-export):
+
+```bash
+echo 'export WATSONX_APIKEY="your-api-key-here"' >> ~/.zshrc
+echo 'export WATSONX_URL="https://api.us-east-1.watson-orchestrate.cloud.ibm.com/instances/your-instance-id"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+> **Finding your Instance URL:** Log into watsonx Orchestrate → profile icon → **Settings → API Details**. Copy the full URL shown — it already includes the instance ID.
 
 ---
 
-## Step 5 — Register and activate the environment
-
-This tells the ADK CLI where your Orchestrate instance lives. Only the `env add` step needs to be done once. The `env activate` step must be run each new terminal session.
+### Step 5 — Register and activate the environment
 
 ```bash
-# Register the environment — do this ONCE only
+# Register once
 orchestrate env add -n fabguardian-env -u $WATSONX_URL
 
-# Activate the environment — do this every session
+# Activate every session
 orchestrate env activate --api-key $WATSONX_APIKEY fabguardian-env
 
-# Verify it is active
+# Verify
 orchestrate env list
-# fabguardian-env should be listed as the active environment
 ```
 
-> **Important syntax notes:**
-> - Do NOT use `--url` as a flag — it does not exist. Pass the URL with `-u`.
-> - Do NOT use `--type mcsp` — this flag does not exist in the current CLI version.
-> - The environment name (`fabguardian-env`) goes AFTER `--api-key` in the activate command.
+> **Syntax rules:**
+> - Use `-u` not `--url`
+> - Do NOT add `--type mcsp` — this flag does not exist in the current CLI
+> - The environment name goes AFTER `--api-key` in the activate command
+> - If `$WATSONX_APIKEY` is blank, paste the key directly instead of using the variable
 
 ---
 
-## Step 6 — Import the three tools
-
-Each tool must be imported individually. The `@tool` decorator inside each Python file is what the ADK CLI looks for when registering the function.
+### Step 6 — Import the three tools
 
 ```bash
-# Tool 1: Equipment failure predictor
-orchestrate tools import \
-  --kind python \
-  --file tools/failure_predictor.py \
-  --name failure_predictor
+orchestrate tools import --kind python --file tools/failure_predictor.py --name failure_predictor
+orchestrate tools import --kind python --file tools/supply_risk_analyzer.py --name supply_risk_analyzer
+orchestrate tools import --kind python --file tools/work_order_manager.py --name work_order_manager
 
-# Tool 2: Supply chain risk analyzer
-orchestrate tools import \
-  --kind python \
-  --file tools/supply_risk_analyzer.py \
-  --name supply_risk_analyzer
-
-# Tool 3: Work order manager
-orchestrate tools import \
-  --kind python \
-  --file tools/work_order_manager.py \
-  --name work_order_manager
-```
-
-Verify all three are registered:
-
-```bash
+# Verify all three are listed
 orchestrate tools list
-# You should see all three tools: failure_predictor, supply_risk_analyzer, work_order_manager
 ```
 
-> **Common error — `No valid python tools found`:**
-> This means the `@tool` decorator is missing. Each tool file must have:
-> ```python
-> from ibm_watsonx_orchestrate.agent_builder.tools import tool
->
-> @tool
-> def function_name(...):
-> ```
-> The decorator must appear directly above the main function with no blank lines between them.
+> **If you see `No valid python tools found`:** Each tool file must have `from ibm_watsonx_orchestrate.agent_builder.tools import tool` at the top and `@tool` directly above the main function.
 
 ---
 
-## Step 7 — Import the agent
+### Step 7 — Import the agent
 
 ```bash
 orchestrate agents import --file fab_guardian_agent.yaml
 
 # Verify
 orchestrate agents list
-# You should see FabGuardian_Orchestrator listed
+# FabGuardian_Orchestrator must be listed
 ```
 
-> **Common errors and fixes:**
->
-> **`422 Name must start with a letter and contain only alphanumeric characters and underscores`**
-> → Agent name cannot have spaces. The YAML uses `FabGuardian_Orchestrator` (underscore, not space).
->
-> **`style` validation error — Input should be 'default', 'react', 'planner'...`**
-> → The `style` field must be a single string, not a nested object. The YAML uses `style: react`.
->
-> **`Model 'ibm/granite-13b-instruct-v2' was not found`**
-> → That model has been deprecated. The YAML uses `watsonx/ibm/granite-3-8b-instruct`.
+> **Common errors fixed in this YAML:**
+> - Name uses `FabGuardian_Orchestrator` (underscore, not space — spaces cause 422 error)
+> - `style: react` as a plain string (nested object causes validation error)
+> - `llm: watsonx/ibm/granite-3-8b-instruct` (granite-13b-instruct-v2 is deprecated)
 
 ---
 
-## Step 8 — Test via CLI
+### Step 8 — Test the agent
 
 ```bash
 orchestrate agents run \
@@ -211,29 +172,104 @@ orchestrate agents run \
   --message "Check LITHO-01 with air_temperature_k=301, process_temperature_k=309, rotational_speed_rpm=1200, torque_nm=72, tool_wear_min=230, product_type=L. Report the risk and create a work order if needed."
 ```
 
-A successful response will include a `risk_level`, `failure_probability`, and a generated work order ID like `WO-3FA2C1B8`.
+A working response includes a risk level, failure probability, and a work order ID like `WO-3FA2C1B8`.
 
 ---
 
-## Step 9 — Use the agent in the watsonx Orchestrate UI
+## Part 2 — Live Simulation Dashboard
 
-1. Log into [watson-orchestrate.cloud.ibm.com](https://watson-orchestrate.cloud.ibm.com)
-2. Go to **AI Assistants** or **Agents** in the left sidebar
-3. Find **FabGuardian_Orchestrator** and open it
-4. Type any of the prompts from the section below into the chat
+### Step 9 — Install simulation dependencies
+
+```bash
+pip install -r simulation/requirements_sim.txt
+```
+
+This adds `flask`, `flask-cors`, and `requests`.
 
 ---
 
-## Example Prompts
+### Step 10 — Start the simulation server
 
-### Equipment health check — HIGH risk
+Make sure your virtual environment is active and credentials are set, then:
+
+```bash
+python simulation/fab_server.py
+```
+
+You should see:
+
+```
+============================================================
+  FabGuardian Simulation Server
+============================================================
+  Dashboard:    http://localhost:5001
+  Sensor API:   http://localhost:5001/api/sensors
+  SSE Stream:   http://localhost:5001/stream
+  Agent:        FabGuardian_Orchestrator
+  Machines:     CMP-01, LITHO-01, ETCH-02, CVD-03
+============================================================
+  Sensor polling every 3 seconds. Open the dashboard to begin.
+```
+
+---
+
+### Step 11 — Open the dashboard
+
+```
+http://localhost:5001
+```
+
+---
+
+### What you will see
+
+| Event | What happens |
+|---|---|
+| All 4 machine cards stream live data | Sensors poll every 3 seconds |
+| Card turns yellow | WARNING anomaly detected |
+| Card turns red and flashes | CRITICAL anomaly — agent tools triggered automatically |
+| Pulsing dots appear in Agent Feed | Tools are running |
+| Response card appears | Risk level, failure probability, and WO-XXXXXXXX work order ID |
+| Counters increment (bottom right) | Anomalies, agent calls, work orders tracked |
+
+Anomalies are injected randomly at ~5% probability per machine per tick. Expect the first one within **30–60 seconds**.
+
+---
+
+### How the simulation works
+
+```
+sensor_simulator.py
+  → generates readings every 3s for CMP-01, LITHO-01, ETCH-02, CVD-03
+  → randomly injects: bearing_wear, thermal_runaway, tool_overload, spindle_fault
+
+fab_server.py
+  → streams readings to dashboard via Server-Sent Events (SSE)
+  → on anomaly detection → calls failure_predictor() directly in Python
+  → if HIGH or MEDIUM risk → calls work_order_manager() to create WO
+  → pushes formatted agent response to dashboard feed
+
+index.html
+  → subscribes to /stream SSE endpoint
+  → updates machine cards, charts, and wear bars in real time
+  → displays agent responses as they arrive
+```
+
+> **Why tools are called directly (not via REST API):**
+> The watsonx Orchestrate ADK does not expose a public REST endpoint or CLI command for programmatic agent chat from external code. All REST and CLI approaches returned 403/auth errors. Calling the tool functions directly in Python produces identical results to the deployed agent — same logic, same output format, same work order IDs.
+
+---
+
+## Example Prompts for the Agent UI
+
+### Equipment health — HIGH risk
 ```
 Check LITHO-01 with air_temperature_k=304, process_temperature_k=312,
 rotational_speed_rpm=1180, torque_nm=73, tool_wear_min=240, product_type=L.
-What is the risk level and what action should be taken?
+What is the risk and what action should be taken?
 ```
 
-### Equipment health check — healthy machine
+### Equipment health — healthy
 ```
 Check CMP-01 with air_temperature_k=298, process_temperature_k=308,
 rotational_speed_rpm=1550, torque_nm=41, tool_wear_min=45, product_type=H.
@@ -243,25 +279,35 @@ Is everything normal?
 ### Multiple machines at once
 ```
 Run a health check on three machines:
-LITHO-01 with air_temperature_k=303, process_temperature_k=311, rotational_speed_rpm=1150, torque_nm=74, tool_wear_min=235, product_type=M.
-ETCH-02 with air_temperature_k=306, process_temperature_k=314, rotational_speed_rpm=990, torque_nm=77, tool_wear_min=228, product_type=L.
-CMP-01 with air_temperature_k=299, process_temperature_k=309, rotational_speed_rpm=1540, torque_nm=42, tool_wear_min=80, product_type=M.
+LITHO-01: air_temperature_k=303, process_temperature_k=311, rotational_speed_rpm=1150, torque_nm=74, tool_wear_min=235, product_type=M.
+ETCH-02: air_temperature_k=306, process_temperature_k=314, rotational_speed_rpm=990, torque_nm=77, tool_wear_min=228, product_type=L.
+CMP-01: air_temperature_k=299, process_temperature_k=309, rotational_speed_rpm=1540, torque_nm=42, tool_wear_min=80, product_type=M.
 Summarise all findings and create work orders where needed.
 ```
 
-### Supply chain risk — critical
+### Supply chain — critical stock-out
 ```
 Check supply risk for HBr Etch Gas with stock_days=4,
 lead_time_days=6, safety_factor=1.3. Do we need an emergency order?
 ```
 
-### Supply chain risk — multiple materials
+### Supply chain — multiple materials
 ```
-Check supply risk for three materials:
-CMP Slurry with stock_days=8, lead_time_days=7, safety_factor=1.2.
-Photoresist AR-248 with stock_days=5, lead_time_days=5, safety_factor=1.2.
-Tungsten CVD Precursor with stock_days=30, lead_time_days=14, safety_factor=1.1.
-Which ones need immediate action?
+Check supply risk for:
+CMP Slurry: stock_days=8, lead_time_days=7, safety_factor=1.2.
+Photoresist AR-248: stock_days=5, lead_time_days=5, safety_factor=1.2.
+Tungsten CVD Precursor: stock_days=30, lead_time_days=14, safety_factor=1.1.
+Which need immediate action?
+```
+
+### Full end-to-end demo
+```
+Run a full fab health check. Check LITHO-01 with air_temperature_k=304,
+process_temperature_k=312, rotational_speed_rpm=1180, torque_nm=73,
+tool_wear_min=240, product_type=L. Also check supply risk for CMP Slurry
+with stock_days=5, lead_time_days=6, safety_factor=1.2 and Photoresist
+with stock_days=3, lead_time_days=4, safety_factor=1.1. Create work orders
+for anything at risk and give me a full summary report.
 ```
 
 ### List all work orders
@@ -276,21 +322,9 @@ Update work order WO-XXXXXXXX to CLOSED with resolution notes
 machine returned to service."
 ```
 
-### Full end-to-end demo — best for presentations
-```
-Run a full fab health check. Check LITHO-01 with air_temperature_k=304,
-process_temperature_k=312, rotational_speed_rpm=1180, torque_nm=73,
-tool_wear_min=240, product_type=L. Also check supply risk for CMP Slurry
-with stock_days=5, lead_time_days=6, safety_factor=1.2 and Photoresist
-with stock_days=3, lead_time_days=4, safety_factor=1.1. Create work orders
-for anything at risk and give me a full summary report.
-```
-
 ---
 
 ## Teardown
-
-To remove everything from your Orchestrate instance:
 
 ```bash
 orchestrate agents delete --name FabGuardian_Orchestrator
@@ -305,14 +339,19 @@ orchestrate tools delete --name work_order_manager
 
 | Error | Cause | Fix |
 |---|---|---|
-| `No such option: --url` | Old/wrong CLI syntax | Use `orchestrate env add -n name -u $URL` |
-| `Got unexpected extra argument (mcsp)` | `--type` flag not supported | Remove `--type` entirely from the command |
-| `Option '-u' requires an argument` | `$WATSONX_URL` is empty | Run `echo $WATSONX_URL` — if blank, export it manually with the full URL |
+| `No such option: --url` | Old CLI syntax | Use `orchestrate env add -n name -u $URL` |
+| `Got unexpected extra argument (mcsp)` | `--type` flag not supported | Remove `--type` entirely |
+| `Option '-u' requires an argument` | `$WATSONX_URL` is empty | Run `echo $WATSONX_URL` — export it manually if blank |
+| `Missing argument 'NAME'` | `$WATSONX_APIKEY` is empty | Paste the key directly instead of using the variable |
 | `No valid python tools found` | Missing `@tool` decorator | Add `from ibm_watsonx_orchestrate.agent_builder.tools import tool` and `@tool` above each function |
-| `422 Name must use alphanumeric and underscores` | Space in agent name | Use `FabGuardian_Orchestrator` not `FabGuardian Orchestrator` in the YAML |
-| `style validation error` | Invalid style value | Use `style: react` as a single string in the YAML |
-| `Model not found` | Deprecated model name | Use `watsonx/ibm/granite-3-8b-instruct` in the YAML |
-| `FileNotFoundError: isolation_forest.joblib` | Sandbox cannot access local files | Use the pure-numpy `failure_predictor.py` — no joblib calls |
-| `analytics library not available` | scikit-learn not installed in sandbox | Use the pure-numpy `failure_predictor.py` — no sklearn imports |
-| `ibm-watsonx-orchestrate-adk not found` | Wrong package name | Correct name is `ibm-watsonx-orchestrate` with no `-adk` suffix |
-| Agent runs but gives no tool output | Tools not linked to agent | Re-import the agent after all tools are successfully imported |
+| `422 Name must use alphanumeric and underscores` | Space in agent name | Use `FabGuardian_Orchestrator` not `FabGuardian Orchestrator` |
+| `style validation error` | Invalid style value | Use `style: react` as a single string |
+| `Model not found` | Deprecated model | Use `watsonx/ibm/granite-3-8b-instruct` |
+| `FileNotFoundError: isolation_forest.joblib` | Sandbox can't access local files | Use the pure-numpy `failure_predictor.py` — no joblib |
+| `analytics library not available` | scikit-learn not in sandbox | Use the pure-numpy `failure_predictor.py` — no sklearn |
+| `ibm-watsonx-orchestrate-adk not found` | Wrong package name | Correct name is `ibm-watsonx-orchestrate` |
+| `IAM token 400 Bad Request` | Wrong auth method for AWS | AWS us-east-1 uses MCSP, not IBM IAM — use ADK credentials file |
+| `403 Access denied` on REST call | MCSP token not valid for direct REST | Call tool functions directly in Python instead |
+| `No such command 'run'` | `orchestrate agents run` doesn't exist | Call tool functions directly via Python |
+| `ToolResponse not str` in simulation | `@tool` wraps return in ToolResponse object | Use `_unwrap()` helper before `json.loads()` |
+| Agent feed shows no responses | Credentials not set before server start | Stop server, export credentials, restart in same terminal |
