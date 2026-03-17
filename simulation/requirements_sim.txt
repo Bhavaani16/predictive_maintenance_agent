@@ -1,0 +1,6 @@
+# FabGuardian Simulation – extra dependencies
+# Install with: pip install -r simulation/requirements_sim.txt
+
+flask>=3.0.0
+flask-cors>=4.0.0
+requests>=2.31.0
